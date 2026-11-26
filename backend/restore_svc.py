@@ -1,7 +1,4 @@
-"""熔断后恢复：重新发布前的状态回切辅助。
-
-grayroll-07：恢复也是正式写口，prod 全量（100%）同样禁止一键落正。
-"""
+"""熔断后恢复：重新发布前的状态回切辅助。"""
 from __future__ import annotations
 
 import time
@@ -12,7 +9,6 @@ from pydantic import BaseModel
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
-from envs_svc import assert_not_prod_full_rollout
 from locks import acquire, release
 from validators import require_int, require_percent, require_rule_kind, require_str
 
@@ -70,8 +66,6 @@ def restore(body: RestoreIn, authorization: str | None = Header(default=None)):
                 raise HTTPException(400, detail="仅已熔断开关可走恢复")
             if not conn.execute("SELECT 1 FROM environments WHERE id=?", (eid,)).fetchone():
                 raise HTTPException(404, detail="环境不存在")
-            # grayroll-07：恢复口同闸，prod 禁止一键全量落正
-            assert_not_prod_full_rollout(conn, eid, pct)
             now = time.time()
             old = conn.execute(
                 "SELECT * FROM flag_rules WHERE flag_id=? AND env_id=? AND official=1", (fid, eid)

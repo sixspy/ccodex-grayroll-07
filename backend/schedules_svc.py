@@ -1,8 +1,4 @@
-"""灰度调度草案：预约比例爬坡（本地记录，非外部 cron）。
-
-grayroll-07：爬坡是分步正道，但任一步都不得在 prod 一键落到 100% 正式规则；
-登记时与推进时双闸，防止经调度口绕过生产全量禁令。
-"""
+"""灰度调度草案：预约比例爬坡（本地记录，非外部 cron）。"""
 from __future__ import annotations
 
 import time
@@ -13,7 +9,6 @@ from pydantic import BaseModel
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
-from envs_svc import assert_not_prod_full_rollout, is_prod_env
 from validators import require_int, require_percent, require_str
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
@@ -55,27 +50,11 @@ def create_schedule(body: ScheduleIn, authorization: str | None = Header(default
     # 轻量校验：必须像 JSON 数组
     if not steps.strip().startswith("["):
         raise HTTPException(400, detail="爬坡步骤须为 JSON 数组文本")
-    import json as _json
-
-    try:
-        parsed_steps = _json.loads(steps)
-    except Exception as e:
-        raise HTTPException(400, detail="爬坡步骤 JSON 无效") from e
-    if not isinstance(parsed_steps, list) or not parsed_steps:
-        raise HTTPException(400, detail="爬坡步骤须为非空数组")
     with connect() as conn:
         if not conn.execute("SELECT 1 FROM flags WHERE id=?", (fid,)).fetchone():
             raise HTTPException(404, detail="开关不存在")
         if not conn.execute("SELECT 1 FROM environments WHERE id=?", (eid,)).fetchone():
             raise HTTPException(404, detail="环境不存在")
-        # grayroll-07 登记闸：prod 计划不得含 100% 全量步
-        if is_prod_env(conn, eid):
-            for st in parsed_steps:
-                if require_percent((st or {}).get("percent", 0)) >= 100:
-                    raise HTTPException(
-                        400,
-                        detail="生产环境爬坡计划禁止含全量（100%）步骤：全量须走影子草案二次确认",
-                    )
         now = time.time()
         cur = conn.execute(
             "INSERT INTO rollout_schedules(flag_id, env_id, steps_json, status, note, created_at, created_by) "
@@ -133,8 +112,6 @@ def apply_next(schedule_id: int, authorization: str | None = Header(default=None
         step = steps[idx]
         pct = require_percent(step.get("percent", 0))
         fid, eid = row["flag_id"], row["env_id"]
-        # grayroll-07 推进闸：即使绕过登记，prod 100% 也不得在此落正式规则
-        assert_not_prod_full_rollout(conn, eid, pct)
         now = time.time()
         old = conn.execute(
             "SELECT * FROM flag_rules WHERE flag_id=? AND env_id=? AND official=1", (fid, eid)

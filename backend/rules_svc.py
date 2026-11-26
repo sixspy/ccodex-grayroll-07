@@ -1,9 +1,4 @@
-"""灰度规则只读与影子绑定（乙路径草案）。
-
-grayroll-07：影子绑定（draft）不触碰正式区，允许登记全量草案；
-但升正写正式规则时与发布同闸——prod 全量禁止经规则口一键落正，
-生产全量只许由发布影子草案经二次确认原子升正。
-"""
+"""灰度规则只读与影子绑定（乙路径草案）。"""
 from __future__ import annotations
 
 import time
@@ -14,7 +9,6 @@ from pydantic import BaseModel
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
-from envs_svc import assert_not_prod_full_rollout
 from locks import acquire, release
 from policies import assert_flag_publishable, assert_not_killed_or_allow_kill, describe_path
 from validators import require_int, require_percent, require_rule_kind
@@ -108,8 +102,6 @@ def promote_rule_shadow(shadow_id: int, authorization: str | None = Header(defau
         key = f"flag-rule:{fid}:{eid}"
         acquire(conn, key, user["username"])
         try:
-            # grayroll-07：升正即写正式规则，与发布同闸，禁规则口一键全量落正
-            assert_not_prod_full_rollout(conn, eid, int(sh["percent"]))
             now = time.time()
             old = conn.execute(
                 "SELECT * FROM flag_rules WHERE flag_id=? AND env_id=? AND official=1", (fid, eid)

@@ -28,9 +28,6 @@ export const SchedulesView = {
     <div class="panel span-5">
       <h2>比例爬坡计划</h2>
       <p class="hint">本地调度草案；推进下一步会写入正式百分比规则。</p>
-      <div class="pill danger" style="display:inline-block;margin-bottom:0.6rem">
-        grayroll-07：prod 爬坡计划禁止含 100% 全量步（登记/推进双闸），全量须走影子二次确认
-      </div>
       <div class="field"><label>开关ID</label><input type="number" v-model.number="form.flag_id" /></div>
       <div class="field"><label>环境ID</label><input type="number" v-model.number="form.env_id" /></div>
       <div class="field"><label>步骤 JSON</label><textarea v-model="form.steps_json" rows="4"></textarea></div>
