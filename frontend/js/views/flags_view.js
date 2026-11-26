@@ -18,6 +18,9 @@ export const FlagsView = {
   <div class="grid">
     <div class="panel span-5">
       <h2>登记开关</h2>
+      <div class="pill danger" style="display:inline-block;margin-bottom:0.6rem">
+        grayroll-07：prod 禁止一键全量 100% 正式发布，须分步爬坡或影子草案二次确认
+      </div>
       <div class="field"><label>开关键</label><input v-model="form.key" /></div>
       <div class="field"><label>标题</label><input v-model="form.title" /></div>
       <div class="field"><label>说明</label><textarea v-model="form.description" rows="2"></textarea></div>

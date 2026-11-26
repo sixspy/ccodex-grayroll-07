@@ -1,4 +1,9 @@
-"""发布生效：默认甲路径同事务写正式配置；use_shadow 走乙路径。"""
+"""发布生效：默认甲路径同事务写正式配置；use_shadow 走乙路径。
+
+grayroll-07 封死口径（当班生效，禁止第三路折中）：
+  甲：prod 且 percent=100 的正式发布整笔拒写，正式账零增；
+  乙：生产全量只许落影子全量草案，正式零改，待二次确认原子升正。
+"""
 from __future__ import annotations
 
 import time
@@ -9,6 +14,7 @@ from pydantic import BaseModel
 from audit_svc import write_audit, write_history
 from auth import current_user, require_writer
 from db import connect
+from envs_svc import assert_not_prod_full_rollout
 from locks import acquire, release
 from policies import assert_flag_publishable, assert_not_killed_or_allow_kill, describe_path
 from validators import require_int, require_percent, require_rule_kind, require_str
@@ -85,6 +91,8 @@ def publish(body: PublishIn, authorization: str | None = Header(default=None)):
                 conn.commit()
                 return {"mode": "shadow", "id": sid, "path": describe_path("release", True)}
 
+            # grayroll-07 甲路径闸口：prod 全量正式发布整笔拒写（在任何正式写之前）
+            assert_not_prod_full_rollout(conn, eid, pct)
             old = conn.execute(
                 "SELECT * FROM flag_rules WHERE flag_id=? AND env_id=? AND official=1", (fid, eid)
             ).fetchone()

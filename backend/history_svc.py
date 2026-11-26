@@ -1,4 +1,8 @@
-"""变更历史。"""
+"""变更历史。
+
+grayroll-07：争用核销（contention_marks）与命运取舍（change_history）分两段返回，
+败方只留争用痕、不产生正式变更。
+"""
 from __future__ import annotations
 
 from fastapi import APIRouter, Header
@@ -27,4 +31,11 @@ def list_history(authorization: str | None = Header(default=None), limit: int = 
                 (limit,),
             ).fetchall()
         ]
-    return {"items": rows}
+        # 第二段：争用核销痕（败方记录，与正式变更命运取舍分离）
+        contentions = [
+            dict(r)
+            for r in conn.execute(
+                "SELECT * FROM contention_marks ORDER BY id DESC LIMIT ?", (limit,)
+            ).fetchall()
+        ]
+    return {"items": rows, "contentions": contentions}
